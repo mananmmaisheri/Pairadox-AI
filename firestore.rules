@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase Auth UID)
+    // Fields:
+    //   - username: string (required)
+    //   - email: string (required, email format)
+    //   - avatar: string (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: users/{userId}/chats/{assistantId}/messages
+    // Document ID: messageId
+    // Fields:
+    //   - id: string (required)
+    //   - role: string (required, 'user' or 'agent')
+    //   - text: string (required)
+    //   - timestamp: number (required)
+    //   - feedback: string (optional, 'up' or 'down')
+    //   - attachment: string (optional)
+    //   - generatedImage: string (optional)
+    //   - suggestions: list (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Validation Functions
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['username', 'email']) &&
+             data.username is string && data.username.size() > 0 && data.username.size() < 100 &&
+             isValidEmail(data.email);
+    }
+
+    function isValidMessage(data) {
+      return hasRequiredFields(['id', 'role', 'text', 'timestamp']) &&
+             data.id is string &&
+             data.role in ['user', 'agent'] &&
+             data.text is string && data.text.size() < 10000 &&
+             data.timestamp is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      match /chats/{assistantId}/messages/{messageId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMessage(request.resource.data);
+        allow update: if isOwner(userId) && isValidMessage(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Pairadox AI",
+  "description": "A high-performance conversational voice agent powered by Gemini 2.5 Flash and Murf TTS (Pairadox AI).",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

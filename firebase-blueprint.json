@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "description": "Display name" },
+        "email": { "type": "string", "format": "email", "description": "User email" },
+        "avatar": { "type": "string", "description": "Base64 avatar image" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation time" }
+      },
+      "required": ["username", "email"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "agent"] },
+        "text": { "type": "string" },
+        "timestamp": { "type": "integer" },
+        "feedback": { "type": "string", "enum": ["up", "down"] },
+        "attachment": { "type": "string" },
+        "generatedImage": { "type": "string" },
+        "suggestions": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "role", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/users/{userId}/chats/{assistantId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat history for a specific assistant"
+    }
+  }
+}
