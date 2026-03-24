@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
+import { Eye, EyeOff, Key, Mail, User as UserIcon, ArrowLeft } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import VoiceOrb from './components/VoiceOrb';
@@ -74,21 +75,40 @@ const ASSISTANTS: Assistant[] = [
 // --- Auth Component ---
 const AuthScreen: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('rememberMe') === 'true';
+  });
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('savedEmail');
+    if (savedEmail && rememberMe) {
+      setEmail(savedEmail);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setIsLoading(true);
 
     try {
-      if (isRegistering) {
+      if (isResettingPassword) {
+        if (!email) throw new Error("Please enter your email.");
+        await userService.resetPassword(email);
+        setSuccess("Reset link sent to your email.");
+        setTimeout(() => setIsResettingPassword(false), 3000);
+      } else if (isRegistering) {
         if (!email || !username || !password || !confirmPassword) {
             throw new Error("All fields are required.");
         }
@@ -99,8 +119,18 @@ const AuthScreen: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
         const newUser: User = { email, username, password };
         const user = await userService.register(newUser);
         setEmailSent(true);
-        setTimeout(() => onLogin(user), 2500); // Delay login to show "Email Sent" success
+        setTimeout(() => onLogin(user), 2500); 
       } else {
+        // Handle Remember Me Persistence
+        await userService.setRememberMe(rememberMe);
+        if (rememberMe) {
+          localStorage.setItem('savedEmail', email);
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          localStorage.removeItem('savedEmail');
+          localStorage.setItem('rememberMe', 'false');
+        }
+
         const user = await userService.login(email, password);
         onLogin(user);
       }
@@ -116,11 +146,9 @@ const AuthScreen: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
           <div className="flex items-center justify-center min-h-screen w-full relative z-50 animate-fade-in">
              <div className="w-full max-w-md p-8 bg-black/40 border border-emerald-500/50 backdrop-blur-xl rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.2)] text-center">
                  <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-emerald-400">
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                     </svg>
+                     <Mail className="w-8 h-8 text-emerald-400" />
                  </div>
-                 <h2 className="text-2xl font-bold text-white mb-2">REGISTRATION COMPLETE</h2>
+                 <h2 className="text-2xl font-bold text-white mb-2 uppercase tracking-widest">Registration Complete</h2>
                  <p className="text-emerald-400 font-mono text-sm">Welcome Email Sent to: {email}</p>
                  <p className="text-white/40 text-xs mt-4 animate-pulse">Establishing Secure Neural Link...</p>
              </div>
@@ -133,66 +161,221 @@ const AuthScreen: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
        <div className="w-full max-w-md p-8 bg-black/40 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-cyan-500 blur-[2px]"></div>
           
-          <h2 className="text-3xl font-bold text-center mb-2 tracking-widest text-white">PAIRADOX AI</h2>
-          <p className="text-center text-xs font-mono text-cyan-400 mb-8 tracking-[0.3em]">SECURE ACCESS TERMINAL</p>
+          <h2 className="text-3xl font-bold text-center mb-2 tracking-widest text-white uppercase">Pairadox AI</h2>
+          <p className="text-center text-xs font-mono text-cyan-400 mb-8 tracking-[0.3em] uppercase">
+            {isResettingPassword ? 'Password Recovery' : 'Secure Access Terminal'}
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegistering && (
-               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Username</label>
-                <input 
-                  type="text" 
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  className="w-full bg-white/5 border border-white/20 rounded p-3 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
-                  placeholder="CODENAME"
-                />
-               </div>
-            )}
-            <div>
-              <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Email ID</label>
-              <input 
-                type="email" 
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/20 rounded p-3 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
-                placeholder="USER@DOMAIN.COM"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/20 rounded p-3 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
-                placeholder="••••••••"
-              />
-            </div>
-            {isRegistering && (
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Confirm Password</label>
+            {isResettingPassword ? (
+              <div className="animate-fade-in">
+                <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Recovery Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                   <input 
-                    type="password" 
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    className="w-full bg-white/5 border border-white/20 rounded p-3 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
-                    placeholder="••••••••"
+                    type="email" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full bg-white/5 border border-white/20 rounded p-3 pl-10 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
+                    placeholder="USER@DOMAIN.COM"
+                    required
                   />
                 </div>
+              </div>
+            ) : (
+              <>
+                {isRegistering && (
+                  <div className="animate-fade-in">
+                    <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Username</label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input 
+                        type="text" 
+                        value={username}
+                        onChange={e => setUsername(e.target.value)}
+                        className="w-full bg-white/5 border border-white/20 rounded p-3 pl-10 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
+                        placeholder="CODENAME"
+                      />
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Email ID</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <input 
+                      type="email" 
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-white/20 rounded p-3 pl-10 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
+                      placeholder="USER@DOMAIN.COM"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[10px] uppercase tracking-wider text-white/50">Password</label>
+                    {!isRegistering && (
+                      <button 
+                        type="button"
+                        onClick={() => { setIsResettingPassword(true); setError(''); setSuccess(''); }}
+                        className="text-[9px] uppercase tracking-widest text-cyan-500/60 hover:text-cyan-400 transition-colors"
+                      >
+                        Forgot?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-white/20 rounded p-3 pl-10 pr-10 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
+                      placeholder="••••••••"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                {isRegistering && (
+                    <div className="animate-fade-in">
+                      <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1">Confirm Password</label>
+                      <div className="relative">
+                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                        <input 
+                          type={showPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          className="w-full bg-white/5 border border-white/20 rounded p-3 pl-10 text-white focus:border-cyan-500 focus:outline-none transition-colors font-mono text-sm"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+                )}
+                
+                {/* Remember Me Checkbox */}
+                {!isResettingPassword && !isRegistering && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="checkbox" 
+                      id="rememberMe"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-3 h-3 bg-white/5 border border-white/20 rounded focus:ring-cyan-500 text-cyan-500"
+                    />
+                    <label htmlFor="rememberMe" className="text-[10px] uppercase tracking-wider text-white/50 cursor-pointer select-none">
+                      Remember Me
+                    </label>
+                  </div>
+                )}
+              </>
             )}
 
-            {error && <p className="text-red-400 text-xs font-mono text-center pt-2">{error}</p>}
+            {error && <p className="text-red-400 text-[10px] font-mono text-center pt-2 uppercase tracking-tight">{error}</p>}
+            {success && <p className="text-emerald-400 text-[10px] font-mono text-center pt-2 uppercase tracking-tight">{success}</p>}
 
-            <button disabled={isLoading} type="submit" className="w-full mt-6 bg-cyan-600/20 border border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black py-3 rounded font-bold tracking-widest transition-all uppercase text-sm disabled:opacity-50">
-              {isLoading ? 'PROCESSING...' : (isRegistering ? 'Initialize User' : 'Authenticate')}
+            <button disabled={isLoading} type="submit" className="w-full mt-6 bg-cyan-600/20 border border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black py-3 rounded font-bold tracking-widest transition-all uppercase text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                isResettingPassword ? 'Send Reset Link' : (isRegistering ? 'Initialize User' : 'Authenticate')
+              )}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button onClick={() => { setIsRegistering(!isRegistering); setError(''); }} className="text-xs text-white/40 hover:text-white underline decoration-white/20 underline-offset-4">
-              {isRegistering ? "Already have credentials? Login" : "New User? Create Identity"}
+          <div className="mt-6 text-center space-y-3">
+            <button 
+                onClick={async () => {
+                    setError('');
+                    setIsLoading(true);
+                    try {
+                        const user = await userService.loginWithGoogle();
+                        onLogin(user);
+                    } catch (err: any) {
+                        setError(err.message);
+                        setIsLoading(false);
+                    }
+                }}
+                className="w-full py-3 bg-white text-black font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all flex items-center justify-center gap-3"
+            >
+                <img src="https://www.gstatic.com/firebase/anonymous/google.png" alt="Google" className="w-5 h-5" referrerPolicy="no-referrer" />
+                Sign in with Google
             </button>
+
+            <div className="flex items-center gap-4 my-4">
+                <div className="h-[1px] flex-1 bg-cyan-500/20"></div>
+                <span className="text-[10px] text-cyan-500/40 uppercase tracking-widest">OR</span>
+                <div className="h-[1px] flex-1 bg-cyan-500/20"></div>
+            </div>
+
+            <button 
+                disabled={isLoading}
+                onClick={async () => {
+                    const adminEmail = 'mananmmaisheri23@gmail.com';
+                    const adminPass = 'admin@123';
+                    const adminUser = 'ADMIN';
+                    
+                    setError('');
+                    setSuccess('Attempting Admin Access...');
+                    setIsLoading(true);
+
+                    try {
+                        // Try Login
+                        try {
+                            const user = await userService.login(adminEmail, adminPass);
+                            onLogin(user);
+                        } catch (loginErr: any) {
+                            // If user not found, try Register
+                            if (loginErr.message.includes("Invalid credentials") || loginErr.message.includes("not found")) {
+                                setSuccess('Admin not found. Initializing Admin Identity...');
+                                const user = await userService.register({ 
+                                    email: adminEmail, 
+                                    username: adminUser, 
+                                    password: adminPass 
+                                });
+                                setSuccess('Admin Identity Initialized. Authenticating...');
+                                setTimeout(() => onLogin(user), 1500);
+                            } else if (loginErr.message.includes("disabled") || loginErr.message.includes("operation-not-allowed")) {
+                                setError('Email login is disabled in Firebase Console. Use "Sign in with Google" with the admin email instead.');
+                                setIsLoading(false);
+                            } else {
+                                throw loginErr;
+                            }
+                        }
+                    } catch (err: any) {
+                        setError(err.message);
+                        setIsLoading(false);
+                    }
+                }}
+                className="w-full py-2 border border-cyan-500/30 text-[10px] text-cyan-400/60 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all uppercase tracking-widest rounded disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+                {isLoading ? (
+                    <div className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                ) : null}
+                Quick Admin Access
+            </button>
+            {isResettingPassword ? (
+              <button 
+                onClick={() => { setIsResettingPassword(false); setError(''); setSuccess(''); }} 
+                className="flex items-center justify-center gap-2 mx-auto text-xs text-white/40 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>Back to Login</span>
+              </button>
+            ) : (
+              <button onClick={() => { setIsRegistering(!isRegistering); setError(''); setSuccess(''); }} className="text-xs text-white/40 hover:text-white underline decoration-white/20 underline-offset-4 transition-colors">
+                {isRegistering ? "Already have credentials? Login" : "New User? Create Identity"}
+              </button>
+            )}
           </div>
        </div>
     </div>
@@ -219,6 +402,43 @@ const App: React.FC = () => {
   
   // UI Error State
   const [uiError, setUiError] = useState<string | null>(null);
+
+  // Resizable Chat State
+  const [chatWidth, setChatWidth] = useState(() => {
+    const saved = localStorage.getItem('chatWidth');
+    return saved ? parseInt(saved) : 320;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = Math.max(200, Math.min(600, e.clientX - 24)); // 24 is padding
+      setChatWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false);
+        localStorage.setItem('chatWidth', chatWidth.toString());
+      }
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, chatWidth]);
 
   // File Upload State
   const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
@@ -521,7 +741,7 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-    <div className="relative min-h-screen bg-slate-950 text-white overflow-hidden flex flex-col font-orbitron">
+    <div className="relative min-h-screen bg-slate-950 text-white overflow-x-hidden overflow-y-auto flex flex-col font-orbitron">
       {/* --- BACKGROUND LAYERS --- */}
       <div className="absolute inset-0 w-full h-full pointer-events-none">
         <div className="absolute inset-0 bg-grid opacity-30 h-[200%] -bottom-[50%]"></div>
@@ -669,15 +889,29 @@ const App: React.FC = () => {
 
         {/* 3. ACTIVE AGENT SCREEN */}
         {selectedAssistant && !isBooting && (
-           <div className="w-full h-full flex flex-col md:flex-row gap-6 items-center justify-center max-w-7xl">
+            <div className="w-full min-h-full flex flex-col md:flex-row gap-6 md:items-center md:justify-center max-w-7xl">
               
               {/* Left: Chat Log (Desktop) */}
-              <div className="hidden md:flex w-1/4 h-[500px] flex-col justify-end">
+              <div 
+                className="hidden md:flex flex-col justify-end relative group"
+                style={{ width: `${chatWidth}px`, height: '500px' }}
+              >
                  <ChatHistory messages={messages} onFeedback={handleFeedback} accentColor={selectedAssistant.theme.primary} />
+                 
+                 {/* Resize Handle */}
+                 <div 
+                   onMouseDown={handleMouseDown}
+                   className={`absolute -right-3 top-0 bottom-0 w-1 cursor-col-resize hover:bg-cyan-500/50 transition-colors z-30 ${isResizing ? 'bg-cyan-500' : 'bg-transparent'}`}
+                 >
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-8 flex flex-col gap-1 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-[1px] h-full bg-cyan-500/50"></div>
+                      <div className="w-[1px] h-full bg-cyan-500/50"></div>
+                   </div>
+                 </div>
               </div>
 
               {/* Center: The Core & Controls */}
-              <div className="flex-1 flex flex-col items-center justify-center relative">
+              <div className="flex-none md:flex-1 flex flex-col items-center justify-center relative min-h-[400px] md:min-h-0">
                  {/* Voice Orb */}
                  <div className="mb-8 scale-75 md:scale-100">
                     <VoiceOrb state={state} theme={selectedAssistant.theme} />
@@ -763,22 +997,27 @@ const App: React.FC = () => {
                  </div>
               </div>
 
-              {/* Right: Metrics (Desktop) */}
-              <div className="hidden md:flex w-1/4 h-[500px] flex-col gap-4 font-mono text-[10px]">
-                  <div className="p-4 border border-white/10 bg-white/5">
-                     <h4 className="text-white/40 mb-2 border-b border-white/10 pb-1">LATENCY METRICS</h4>
-                     <div className="flex justify-between py-1"><span>ASR</span> <span className="text-white">{metrics.asrTime}ms</span></div>
-                     <div className="flex justify-between py-1"><span>LLM</span> <span className="text-white">{metrics.llmTime}ms</span></div>
-                     <div className="flex justify-between py-1"><span>TTS</span> <span className="text-white">{metrics.ttsTime}ms</span></div>
-                     <div className={`flex justify-between py-2 mt-2 border-t border-white/10 font-bold ${selectedAssistant.theme.orbColor}`}>
-                        <span>TOTAL</span> <span>{metrics.totalTime}ms</span>
+              {/* Right: Metrics (Desktop & Mobile) */}
+              <div className="w-full md:w-1/4 flex flex-col gap-4 font-mono text-[10px]">
+                  <div className="p-4 border border-white/10 bg-white/5 rounded-xl">
+                     <h4 className="text-white/40 mb-2 border-b border-white/10 pb-1 flex justify-between items-center">
+                        <span>LATENCY METRICS</span>
+                        <span className="text-[8px] opacity-30">SYSTEM LOG</span>
+                     </h4>
+                     <div className="grid grid-cols-2 md:block gap-x-4">
+                        <div className="flex justify-between py-1"><span>ASR</span> <span className="text-white">{metrics.asrTime}ms</span></div>
+                        <div className="flex justify-between py-1"><span>LLM</span> <span className="text-white">{metrics.llmTime}ms</span></div>
+                        <div className="flex justify-between py-1"><span>TTS</span> <span className="text-white">{metrics.ttsTime}ms</span></div>
+                        <div className={`flex justify-between py-2 mt-2 border-t border-white/10 font-bold ${selectedAssistant.theme.orbColor}`}>
+                            <span>TOTAL</span> <span>{metrics.totalTime}ms</span>
+                        </div>
                      </div>
                   </div>
-                  <div className="flex-1 border border-white/5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
+                  <div className="hidden md:block flex-1 border border-white/5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
               </div>
 
               {/* Mobile Chat History Overlay */}
-              <div className="md:hidden w-full h-48">
+              <div className="md:hidden w-full flex-none mb-12">
                 <ChatHistory messages={messages} onFeedback={handleFeedback} accentColor={selectedAssistant.theme.primary} />
               </div>
 

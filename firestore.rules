@@ -51,6 +51,12 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(fields);
     }
 
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "mananmmaisheri23@gmail.com" && request.auth.token.email_verified == true));
+    }
+
     // ===============================================================
     // Validation Functions
     // ===============================================================
@@ -74,15 +80,15 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data)) || isAdmin();
       
       match /chats/{assistantId}/messages/{messageId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isValidMessage(request.resource.data);
-        allow update: if isOwner(userId) && isValidMessage(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow update: if (isOwner(userId) && isValidMessage(request.resource.data)) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
       }
     }
 

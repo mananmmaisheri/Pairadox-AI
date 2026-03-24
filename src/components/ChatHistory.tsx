@@ -153,7 +153,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ messages, onFeedback, accentC
   };
 
   return (
-    <div className="flex flex-col w-full h-full max-h-[300px] md:max-h-[600px] bg-black/60 rounded-xl border border-white/10 backdrop-blur-md relative overflow-hidden shadow-2xl">
+    <div className="flex flex-col w-full h-[400px] md:h-full md:max-h-[600px] bg-black/60 rounded-xl border border-white/10 backdrop-blur-md relative overflow-hidden shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5 backdrop-blur-xl z-10">
         <div className="flex items-center gap-3">

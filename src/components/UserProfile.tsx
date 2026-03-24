@@ -154,9 +154,15 @@ const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
                     
                     <h2 className="text-xl font-bold text-white tracking-wider break-all text-center">{user.username}</h2>
-                    <span className="text-[10px] text-cyan-400 font-mono border border-cyan-900 bg-cyan-950/30 px-2 py-0.5 rounded mt-2">
-                        LEVEL 1 OPERATIVE
-                    </span>
+                    {user.email === 'mananmmaisheri23@gmail.com' ? (
+                        <span className="text-[10px] text-red-400 font-bold border border-red-900 bg-red-950/30 px-2 py-0.5 rounded mt-2 animate-pulse">
+                            ADMIN OPERATIVE
+                        </span>
+                    ) : (
+                        <span className="text-[10px] text-cyan-400 font-mono border border-cyan-900 bg-cyan-950/30 px-2 py-0.5 rounded mt-2">
+                            LEVEL 1 OPERATIVE
+                        </span>
+                    )}
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg, image/webp" />
                 </div>
 

@@ -1,11 +1,16 @@
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
+  signInWithPopup,
   signOut, 
   updateProfile as firebaseUpdateProfile,
   updatePassword as firebaseUpdatePassword,
   reauthenticateWithCredential,
-  EmailAuthProvider
+  EmailAuthProvider,
+  sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
 } from 'firebase/auth';
 import { 
   doc, 
@@ -19,7 +24,7 @@ import {
   serverTimestamp,
   getDocFromServer
 } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db, googleProvider } from '../firebase';
 import { User, Message } from '../types';
 
 enum OperationType {
@@ -132,6 +137,39 @@ export const userService = {
       if (error instanceof Error && ((error as any).code === 'auth/wrong-password' || (error as any).code === 'auth/user-not-found')) {
         throw new Error("Invalid credentials.");
       }
+      if (error instanceof Error && (error as any).code === 'auth/operation-not-allowed') {
+        throw new Error("Email/Password login is disabled. Please use Google Login or enable it in the Firebase Console.");
+      }
+      throw error;
+    }
+  },
+
+  // 2.1 LOGIN WITH GOOGLE
+  loginWithGoogle: async (): Promise<User> => {
+    try {
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = userCredential.user;
+
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // Create profile if it doesn't exist
+        const newUser: User = {
+          username: firebaseUser.displayName || 'OPERATIVE',
+          email: firebaseUser.email || '',
+          avatar: firebaseUser.photoURL || '',
+          chatHistory: {}
+        };
+        await setDoc(userDocRef, {
+          ...newUser,
+          createdAt: serverTimestamp()
+        });
+        return newUser;
+      }
+
+      return userDoc.data() as User;
+    } catch (error) {
       throw error;
     }
   },
@@ -139,6 +177,15 @@ export const userService = {
   // 3. LOGOUT
   logout: async () => {
     await signOut(auth);
+  },
+
+  // 3.1 SET PERSISTENCE
+  setRememberMe: async (remember: boolean) => {
+    try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+    } catch (error) {
+      console.error("Error setting persistence:", error);
+    }
   },
 
   // 4. UPDATE PROFILE
@@ -165,6 +212,18 @@ export const userService = {
       await reauthenticateWithCredential(user, credential);
       await firebaseUpdatePassword(user, newPass);
     } catch (error) {
+      throw error;
+    }
+  },
+
+  // 5.1 RESET PASSWORD
+  resetPassword: async (email: string): Promise<void> => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      if (error instanceof Error && (error as any).code === 'auth/user-not-found') {
+        throw new Error("No user found with this email.");
+      }
       throw error;
     }
   },

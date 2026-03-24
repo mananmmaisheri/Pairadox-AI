@@ -268,7 +268,7 @@ const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete }) => {
                  </div>
              </div>
 
-             <div className="mt-12 w-80 h-32 overflow-hidden border-l-2 border-cyan-500/30 pl-4 font-mono text-[10px] text-cyan-500/70 flex flex-col justify-end">
+             <div className="mt-8 md:mt-12 w-full max-w-[320px] h-32 overflow-hidden border-l-2 border-cyan-500/30 pl-4 font-mono text-[10px] text-cyan-500/70 flex flex-col justify-end">
                 {logs.map((log, i) => (
                     <div key={i} className="whitespace-nowrap animate-slide-down opacity-80">
                         {'>'} {log}
