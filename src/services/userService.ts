@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup,
   signOut, 
+  signInAnonymously,
   updateProfile as firebaseUpdateProfile,
   updatePassword as firebaseUpdatePassword,
   reauthenticateWithCredential,
@@ -138,7 +139,7 @@ export const userService = {
         throw new Error("Invalid credentials.");
       }
       if (error instanceof Error && (error as any).code === 'auth/operation-not-allowed') {
-        throw new Error("Email/Password login is disabled. Please use Google Login or enable it in the Firebase Console.");
+        throw new Error("Email/Password login is currently disabled in the Firebase Console. To fix this: Go to Firebase Console > Authentication > Sign-in method and enable 'Email/Password'. Alternatively, use Google Login or Guest Access below.");
       }
       throw error;
     }
@@ -170,6 +171,39 @@ export const userService = {
 
       return userDoc.data() as User;
     } catch (error) {
+      throw error;
+    }
+  },
+
+  // 2.2 LOGIN ANONYMOUSLY (GUEST)
+  loginAnonymously: async (): Promise<User> => {
+    try {
+      const userCredential = await signInAnonymously(auth);
+      const firebaseUser = userCredential.user;
+
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        const newUser: User = {
+          username: `GUEST_${firebaseUser.uid.slice(0, 5)}`,
+          email: 'guest@pairadox.ai',
+          avatar: '',
+          chatHistory: {}
+        };
+        await setDoc(userDocRef, {
+          ...newUser,
+          isGuest: true,
+          createdAt: serverTimestamp()
+        });
+        return newUser;
+      }
+
+      return userDoc.data() as User;
+    } catch (error) {
+      if (error instanceof Error && (error as any).code === 'auth/operation-not-allowed') {
+        throw new Error("Guest Login is disabled. Please enable 'Anonymous' provider in Firebase Console > Authentication > Sign-in method.");
+      }
       throw error;
     }
   },

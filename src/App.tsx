@@ -311,6 +311,24 @@ const AuthScreen: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
                 Sign in with Google
             </button>
 
+            <button 
+                disabled={isLoading}
+                onClick={async () => {
+                    setError('');
+                    setIsLoading(true);
+                    try {
+                        const user = await userService.loginAnonymously();
+                        onLogin(user);
+                    } catch (err: any) {
+                        setError(err.message);
+                        setIsLoading(false);
+                    }
+                }}
+                className="w-full py-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-bold uppercase tracking-widest rounded hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-3"
+            >
+                Continue as Guest
+            </button>
+
             <div className="flex items-center gap-4 my-4">
                 <div className="h-[1px] flex-1 bg-cyan-500/20"></div>
                 <span className="text-[10px] text-cyan-500/40 uppercase tracking-widest">OR</span>
@@ -335,6 +353,9 @@ const AuthScreen: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
                             onLogin(user);
                         } catch (loginErr: any) {
                             // If user not found, try Register
+                            if (loginErr.message.includes("Email/Password login is currently disabled")) {
+                                throw loginErr;
+                            }
                             if (loginErr.message.includes("Invalid credentials") || loginErr.message.includes("not found")) {
                                 setSuccess('Admin not found. Initializing Admin Identity...');
                                 const user = await userService.register({ 
